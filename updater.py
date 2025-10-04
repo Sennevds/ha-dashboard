@@ -168,9 +168,12 @@ class UpdateChecker:
             config_file = self.app_dir / "_internal" / "config.json"
             webdata_dir = self.app_dir / "webdata"
             
-            config_backup = None
+            old_config = None
             if config_file.exists():
-                config_backup = config_file.read_text(encoding='utf-8')
+                try:
+                    old_config = json.loads(config_file.read_text(encoding='utf-8'))
+                except Exception as e:
+                    logging.warning(f"Could not parse old config: {e}")
             
             # Copy new files (excluding certain directories)
             logging.info("Installing update files...")
@@ -191,12 +194,33 @@ class UpdateChecker:
                 else:
                     shutil.copy2(item, dest_path)
             
-            # Restore user config if it existed
-            if config_backup:
+            # Merge user config with new config
+            if old_config:
                 new_config_file = self.app_dir / "_internal" / "config.json"
                 if new_config_file.exists():
-                    logging.info("Restoring user configuration...")
-                    new_config_file.write_text(config_backup, encoding='utf-8')
+                    try:
+                        logging.info("Merging user configuration with new version...")
+                        new_config = json.loads(new_config_file.read_text(encoding='utf-8'))
+                        
+                        # Preserve user settings from all sections except 'updates'
+                        for section in old_config:
+                            if section == 'updates':
+                                # Keep new version number but preserve user preferences
+                                if 'updates' in new_config:
+                                    new_config['updates']['enabled'] = old_config['updates'].get('enabled', True)
+                                    new_config['updates']['check_on_startup'] = old_config['updates'].get('check_on_startup', True)
+                                    new_config['updates']['auto_install'] = old_config['updates'].get('auto_install', False)
+                                    # Keep the NEW current_version from the update
+                                    # Keep the NEW repo_url in case it changed
+                            else:
+                                # Preserve all other user settings
+                                new_config[section] = old_config[section]
+                        
+                        new_config_file.write_text(json.dumps(new_config, indent=2), encoding='utf-8')
+                        logging.info("Configuration merged successfully")
+                    except Exception as e:
+                        logging.error(f"Error merging config, keeping new config: {e}")
+                        # If merge fails, new config will be used as-is
             
             # Clean up
             shutil.rmtree(temp_extract_dir)
