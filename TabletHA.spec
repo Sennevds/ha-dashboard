@@ -22,10 +22,6 @@ else:
 added_files = [
     ('config.json', '.'),
     ('README.md', '.'),
-    ('QUICKSTART.md', '.'),
-    ('DETECTION_MODES.md', '.'),
-    ('CONFIGURE.md', '.'),
-    ('UPDATE_SYSTEM.md', '.'),
 ]
 
 # Collect MediaPipe data files
