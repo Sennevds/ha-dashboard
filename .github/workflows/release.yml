@@ -111,7 +111,7 @@ jobs:
         - MQTT settings
         - Update preferences
         
-        See \`_internal\CONFIGURE.md\` for detailed configuration guide.
+        See README.md for detailed configuration guide.
         
         ### 🔄 Updates
         
@@ -130,12 +130,12 @@ jobs:
         
         ### 📚 Documentation
         
-        Included in the \`_internal\` folder:
-        - \`README.md\` - Getting started guide
-        - \`QUICKSTART.md\` - Quick setup
-        - \`CONFIGURE.md\` - Configuration reference
-        - \`DETECTION_MODES.md\` - Presence detection guide
-        - \`UPDATE_SYSTEM.md\` - Update system documentation
+        See \`README.md\` in the \`_internal\` folder for:
+        - Getting started guide
+        - Configuration instructions
+        - Presence detection setup
+        - MQTT integration
+        - Troubleshooting
         
         ### 💻 System Requirements
         

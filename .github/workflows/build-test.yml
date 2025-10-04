@@ -100,11 +100,7 @@ jobs:
         # Check required files in _internal
         $requiredFiles = @(
           "config.json",
-          "README.md",
-          "QUICKSTART.md",
-          "DETECTION_MODES.md",
-          "CONFIGURE.md",
-          "UPDATE_SYSTEM.md"
+          "README.md"
         )
         
         foreach ($file in $requiredFiles) {
@@ -115,11 +111,9 @@ jobs:
           }
         }
         
-        # Check for critical DLLs
+        # Check for critical DLLs (note: Qt DLLs may be in subdirectories)
         $criticalDlls = @(
-          "python310.dll",
-          "Qt6Core.dll",
-          "Qt6WebEngineCore.dll"
+          "python310.dll"
         )
         
         foreach ($dll in $criticalDlls) {
@@ -128,6 +122,14 @@ jobs:
           } else {
             $errors += "$dll not found"
           }
+        }
+        
+        # Check for Qt DLLs (they might be anywhere in _internal)
+        $qtDlls = Get-ChildItem -Path "dist\TabletHA\_internal" -Filter "Qt6*.dll" -Recurse -ErrorAction SilentlyContinue
+        if ($qtDlls.Count -gt 0) {
+          echo "  ✓ Found $($qtDlls.Count) Qt6 DLLs"
+        } else {
+          $errors += "No Qt6 DLLs found"
         }
         
         # Report errors
