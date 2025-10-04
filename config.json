@@ -1,83 +1,42 @@
-{{
-
-  "home_assistant": {  "cookbook": {
-
-    "url": "http://homeassistant.local:8123",    "url": "https://xxxxx"
-
-    "token": ""  },
-
-  },  "home_assistant": {
-
-  "cookbook": {    "token": "",
-
-    "url": "http://cookbook.local"    "url": "https://xxxxx"
-
-  },  },
-
-  "mqtt": {  "mqtt": {
-
-    "enabled": false,    "broker": "homeassistant.local",
-
-    "broker": "homeassistant.local",    "enabled": false,
-
-    "port": 1883,    "password": "",
-
-    "username": "",    "port": 1883,
-
-    "password": "",    "topic_prefix": "tablet",
-
-    "topic_prefix": "tablet"    "username": ""
-
-  },  },
-
-  "presence_detection": {  "presence_detection": {
-
-    "enabled": true,    "check_interval_ms": 1000,
-
-    "detection_mode": "both",    "detection_confidence": 0.5,
-
-    "detection_confidence": 0.5,    "detection_mode": "both",
-
-    "check_interval_ms": 1000,    "enabled": true,
-
-    "presence_timeout_seconds": 30    "presence_timeout_seconds": 30
-
-  },  },
-
-  "screen": {  "screen": {
-
-    "turn_off_when_no_presence": true,    "dim_brightness_when_no_presence": false,
-
-    "dim_brightness_when_no_presence": false,    "dim_level": 20,
-
-    "dim_level": 20,    "normal_brightness": 100,
-
-    "normal_brightness": 100    "turn_off_when_no_presence": true
-
-  },  },
-
-  "shortcuts": {  "shortcuts": {
-
-    "switch_app": "F1",    "exit_fullscreen": "F11",
-
-    "exit_fullscreen": "F11",    "quit_app": "Ctrl+Q",
-
-    "quit_app": "Ctrl+Q"    "switch_app": "F1"
-
-  },  },
-
-  "updates": {  "updates": {
-
-    "enabled": true,    "auto_install": false,
-
-    "check_on_startup": true,    "check_on_startup": true,
-
-    "auto_install": false,    "current_version": "1.0.0",
-
-    "current_version": "1.0.0",    "enabled": true,
-
-    "repo_url": "Sennevds/ha-dashboard"    "repo_url": "Sennevds/ha-dashboard"
-
-  }  }
-
-}}
+{
+  "home_assistant": {
+    "url": "http://homeassistant.local:8123",
+    "token": ""
+  },
+  "cookbook": {
+    "url": "http://cookbook.local"
+  },
+  "mqtt": {
+    "enabled": false,
+    "broker": "homeassistant.local",
+    "port": 1883,
+    "username": "",
+    "password": "",
+    "topic_prefix": "tablet"
+  },
+  "presence_detection": {
+    "enabled": true,
+    "detection_mode": "both",
+    "detection_confidence": 0.5,
+    "check_interval_ms": 1000,
+    "presence_timeout_seconds": 30
+  },
+  "screen": {
+    "turn_off_when_no_presence": true,
+    "dim_brightness_when_no_presence": false,
+    "dim_level": 20,
+    "normal_brightness": 100
+  },
+  "shortcuts": {
+    "switch_app": "F1",
+    "exit_fullscreen": "F11",
+    "quit_app": "Ctrl+Q"
+  },
+  "updates": {
+    "enabled": true,
+    "check_on_startup": true,
+    "auto_install": false,
+    "current_version": "1.0.0",
+    "repo_url": "Sennevds/ha-dashboard"
+  }
+}
