@@ -134,8 +134,8 @@ jobs:
         if ($errors.Count -gt 0) {
           echo ""
           echo "Build verification failed:"
-          foreach ($error in $errors) {
-            echo "  ✗ $error"
+          foreach ($err in $errors) {
+            echo "  ✗ $err"
           }
           exit 1
         } else {
