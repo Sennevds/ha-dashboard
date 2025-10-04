@@ -128,14 +128,15 @@ class UpdateChecker:
     
     def install_update(self, zip_path: Path, backup: bool = True) -> bool:
         """
-        Install the downloaded update.
+        Prepare and launch the update installer.
+        This spawns a separate process to install the update after this app exits.
         
         Args:
             zip_path: Path to the downloaded ZIP file
             backup: Whether to create a backup before updating
             
         Returns:
-            True if successful, False otherwise
+            True if installer was launched, False otherwise
         """
         try:
             # Create backup if requested
@@ -147,102 +148,79 @@ class UpdateChecker:
                 shutil.copytree(self.app_dir, backup_dir, 
                               ignore=shutil.ignore_patterns('webdata', 'updates', '__pycache__'))
             
-            # Extract to temporary directory
-            temp_extract_dir = self.update_dir / "temp_extract"
-            if temp_extract_dir.exists():
-                shutil.rmtree(temp_extract_dir)
-            temp_extract_dir.mkdir(exist_ok=True)
-            
-            logging.info(f"Extracting update to {temp_extract_dir}")
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(temp_extract_dir)
-            
-            # Find the TabletHA directory in the extracted files
-            extracted_items = list(temp_extract_dir.iterdir())
-            if len(extracted_items) == 1 and extracted_items[0].is_dir():
-                source_dir = extracted_items[0]
-            else:
-                source_dir = temp_extract_dir
-            
-            # Preserve user data
+            # Read current config to pass to installer
             config_file = self.app_dir / "_internal" / "config.json"
-            webdata_dir = self.app_dir / "webdata"
-            
-            old_config = None
+            old_config_json = ""
             if config_file.exists():
                 try:
-                    old_config = json.loads(config_file.read_text(encoding='utf-8'))
+                    old_config_json = config_file.read_text(encoding='utf-8')
                 except Exception as e:
-                    logging.warning(f"Could not parse old config: {e}")
+                    logging.warning(f"Could not read old config: {e}")
             
-            # Copy new files (excluding certain directories)
-            logging.info("Installing update files...")
-            for item in source_dir.iterdir():
-                if item.name in ['webdata', 'updates', '__pycache__']:
-                    continue
-                    
-                dest_path = self.app_dir / item.name
+            # Find the update installer script
+            if getattr(sys, 'frozen', False):
+                # Running as exe - installer should be in _internal
+                installer_script = self.app_dir / "_internal" / "update_installer.py"
+                python_exe = sys.executable  # Use the bundled Python
+            else:
+                # Running as script
+                installer_script = Path(__file__).parent / "update_installer.py"
+                python_exe = sys.executable
+            
+            if not installer_script.exists():
+                logging.error(f"Update installer not found: {installer_script}")
+                return False
+            
+            # Get current process ID
+            import os
+            current_pid = os.getpid()
+            
+            # Launch the update installer as a separate process
+            logging.info(f"Launching update installer: {installer_script}")
+            logging.info(f"Current PID: {current_pid}")
+            
+            # Use pythonw to run without console window
+            if getattr(sys, 'frozen', False):
+                # For frozen exe, we need to run Python script differently
+                # Extract update_installer.py to updates folder and run with Python
+                import shutil
+                installer_copy = self.update_dir / "update_installer.py"
+                shutil.copy2(installer_script, installer_copy)
                 
-                if dest_path.exists():
-                    if dest_path.is_dir():
-                        shutil.rmtree(dest_path)
-                    else:
-                        dest_path.unlink()
-                
-                if item.is_dir():
-                    shutil.copytree(item, dest_path)
-                else:
-                    shutil.copy2(item, dest_path)
+                # Try to find python.exe in the system
+                import subprocess
+                cmd = [
+                    'python',
+                    str(installer_copy),
+                    str(current_pid),
+                    str(self.app_dir),
+                    str(zip_path),
+                    old_config_json
+                ]
+            else:
+                cmd = [
+                    python_exe,
+                    str(installer_script),
+                    str(current_pid),
+                    str(self.app_dir),
+                    str(zip_path),
+                    old_config_json
+                ]
             
-            # Merge user config with new config
-            if old_config:
-                new_config_file = self.app_dir / "_internal" / "config.json"
-                if new_config_file.exists():
-                    try:
-                        logging.info("Merging user configuration with new version...")
-                        new_config = json.loads(new_config_file.read_text(encoding='utf-8'))
-                        
-                        # Preserve user settings from all sections except 'updates'
-                        for section in old_config:
-                            if section == 'updates':
-                                # Keep new version number but preserve user preferences
-                                if 'updates' in new_config:
-                                    new_config['updates']['enabled'] = old_config['updates'].get('enabled', True)
-                                    new_config['updates']['check_on_startup'] = old_config['updates'].get('check_on_startup', True)
-                                    new_config['updates']['auto_install'] = old_config['updates'].get('auto_install', False)
-                                    # Keep the NEW current_version from the update
-                                    # Keep the NEW repo_url in case it changed
-                            else:
-                                # Preserve all other user settings
-                                new_config[section] = old_config[section]
-                        
-                        new_config_file.write_text(json.dumps(new_config, indent=2), encoding='utf-8')
-                        logging.info("Configuration merged successfully")
-                    except Exception as e:
-                        logging.error(f"Error merging config, keeping new config: {e}")
-                        # If merge fails, new config will be used as-is
+            # Launch installer in background
+            subprocess.Popen(
+                cmd,
+                cwd=str(self.update_dir),
+                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
+            )
             
-            # Clean up
-            shutil.rmtree(temp_extract_dir)
-            zip_path.unlink()
-            
-            logging.info("Update installed successfully!")
+            logging.info("Update installer launched successfully")
+            logging.info("Application will now exit to allow update installation")
             return True
             
         except Exception as e:
-            logging.error(f"Error installing update: {e}", exc_info=True)
+            logging.error(f"Error launching update installer: {e}", exc_info=True)
             return False
-    
-    def restart_application(self):
-        """Restart the application after update."""
-        try:
-            exe_path = self.app_dir / "TabletHA.exe"
-            if exe_path.exists():
-                logging.info("Restarting application...")
-                subprocess.Popen([str(exe_path)], cwd=str(self.app_dir))
-                sys.exit(0)
-        except Exception as e:
-            logging.error(f"Error restarting application: {e}", exc_info=True)
 
 
 class UpdateManager:

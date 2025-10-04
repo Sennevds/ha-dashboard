@@ -22,6 +22,7 @@ else:
 added_files = [
     ('config.json', '.'),
     ('README.md', '.'),
+    ('update_installer.py', '.'),  # Include update installer script
 ]
 
 # Collect MediaPipe data files
@@ -64,6 +65,7 @@ hidden_imports = [
     'idna',
     'packaging',
     'packaging.version',
+    'psutil',
 ]
 
 a = Analysis(

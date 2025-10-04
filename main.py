@@ -540,20 +540,24 @@ class TabletApp(QMainWindow):
             self.progress_dialog = None
         
         if success:
-            # Show restart prompt
+            # Show information that update will install on exit
             msg = QMessageBox(self)
-            msg.setWindowTitle("Update Installed")
-            msg.setText("Update installed successfully!")
+            msg.setWindowTitle("Update Ready")
+            msg.setText("Update downloaded successfully!")
             msg.setInformativeText(
-                "The application needs to restart to complete the update.\n\n"
-                "Restart now?"
+                "The application will exit and the update will be installed automatically.\n\n"
+                "After installation completes, the application will restart.\n\n"
+                "Exit and install now?"
             )
             msg.setStandardButtons(QMessageBox.StandardButton.Yes | 
                                   QMessageBox.StandardButton.No)
             msg.setDefaultButton(QMessageBox.StandardButton.Yes)
             
             if msg.exec() == QMessageBox.StandardButton.Yes:
-                self.update_manager.checker.restart_application()
+                # The installer has been launched and will wait for this process to exit
+                # Simply close the application
+                logging.info("User confirmed update installation - exiting application")
+                QApplication.quit()
         else:
             # Show error
             QMessageBox.critical(
