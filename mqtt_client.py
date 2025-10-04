@@ -1,4 +1,5 @@
 import json
+import logging
 import paho.mqtt.client as mqtt
 import threading
 from typing import Callable, Dict, Any
@@ -37,24 +38,24 @@ class MQTTClient:
         try:
             self.client.connect(self.broker, self.port, 60)
             self.client.loop_start()
-            print(f"Connecting to MQTT broker at {self.broker}:{self.port}")
+            logging.info(f"Connecting to MQTT broker at {self.broker}:{self.port}")
         except Exception as e:
-            print(f"Error connecting to MQTT broker: {e}")
+            logging.error(f"Error connecting to MQTT broker: {e}")
     
     def disconnect(self):
         """Disconnect from MQTT broker."""
         try:
             self.client.loop_stop()
             self.client.disconnect()
-            print("Disconnected from MQTT broker")
+            logging.info("Disconnected from MQTT broker")
         except Exception as e:
-            print(f"Error disconnecting from MQTT broker: {e}")
+            logging.error(f"Error disconnecting from MQTT broker: {e}")
     
     def _on_connect(self, client, userdata, flags, rc):
         """Callback when connected to broker."""
         if rc == 0:
             self.is_connected = True
-            print("Connected to MQTT broker")
+            logging.info("Connected to MQTT broker")
             
             # Subscribe to command topics
             topics = [
@@ -66,24 +67,24 @@ class MQTTClient:
             
             for topic in topics:
                 self.client.subscribe(topic)
-                print(f"Subscribed to {topic}")
+                logging.debug(f"Subscribed to {topic}")
             
             # Publish availability
             self.publish_state("availability", "online")
         else:
-            print(f"Failed to connect to MQTT broker, return code: {rc}")
+            logging.error(f"Failed to connect to MQTT broker, return code: {rc}")
     
     def _on_disconnect(self, client, userdata, rc):
         """Callback when disconnected from broker."""
         self.is_connected = False
-        print(f"Disconnected from MQTT broker, return code: {rc}")
+        logging.warning(f"Disconnected from MQTT broker, return code: {rc}")
     
     def _on_message(self, client, userdata, msg):
         """Callback when message received."""
         topic = msg.topic
         payload = msg.payload.decode('utf-8')
         
-        print(f"Received message on {topic}: {payload}")
+        logging.debug(f"Received message on {topic}: {payload}")
         
         # Extract command type from topic
         if topic.startswith(f"{self.topic_prefix}/command/"):
@@ -94,7 +95,7 @@ class MQTTClient:
                 try:
                     self.message_callbacks[command_type](payload)
                 except Exception as e:
-                    print(f"Error in message callback for {command_type}: {e}")
+                    logging.error(f"Error in message callback for {command_type}: {e}", exc_info=True)
     
     def register_callback(self, command_type: str, callback: Callable[[str], None]):
         """
@@ -125,7 +126,7 @@ class MQTTClient:
             
             self.client.publish(topic, payload, retain=True)
         except Exception as e:
-            print(f"Error publishing state: {e}")
+            logging.error(f"Error publishing state: {e}")
     
     def publish_discovery_config(self):
         """Publish Home Assistant MQTT discovery configuration."""
@@ -168,6 +169,6 @@ class MQTTClient:
                 retain=True
             )
             
-            print("Published MQTT discovery configuration")
+            logging.info("Published MQTT discovery configuration")
         except Exception as e:
-            print(f"Error publishing discovery config: {e}")
+            logging.error(f"Error publishing discovery config: {e}")

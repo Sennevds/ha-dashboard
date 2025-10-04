@@ -1,4 +1,5 @@
 import cv2
+import logging
 import mediapipe as mp
 import threading
 import time
@@ -61,7 +62,7 @@ class PresenceDetector:
         self.is_running = True
         self._thread = threading.Thread(target=self._detection_loop, daemon=True)
         self._thread.start()
-        print("Presence detector started")
+        logging.info(f"Presence detector started in '{self.detection_mode}' mode")
     
     def stop(self):
         """Stop the presence detection."""
@@ -73,7 +74,7 @@ class PresenceDetector:
             self.camera.release()
             self.camera = None
         
-        print("Presence detector stopped")
+        logging.info("Presence detector stopped")
     
     def add_callback(self, callback: Callable[[bool], None]):
         """
@@ -90,7 +91,7 @@ class PresenceDetector:
             try:
                 callback(present)
             except Exception as e:
-                print(f"Error in presence callback: {e}")
+                logging.error(f"Error in presence callback: {e}", exc_info=True)
     
     def _detection_loop(self):
         """Main detection loop running in background thread."""
@@ -98,7 +99,7 @@ class PresenceDetector:
         self.camera = cv2.VideoCapture(0)
         
         if not self.camera.isOpened():
-            print("Error: Could not open camera")
+            logging.error("Could not open camera for presence detection")
             self.is_running = False
             return
         
@@ -108,7 +109,7 @@ class PresenceDetector:
         
         previous_state = self.person_present
         
-        print(f"Starting presence detection in '{self.detection_mode}' mode")
+        logging.info(f"Camera initialized for presence detection in '{self.detection_mode}' mode")
         
         while self.is_running:
             try:
@@ -117,7 +118,7 @@ class PresenceDetector:
                 ret, frame = self.camera.read()
                 
                 if not ret:
-                    print("Error: Could not read frame from camera")
+                    logging.warning("Could not read frame from camera")
                     time.sleep(self.check_interval)
                     continue
                 
@@ -169,7 +170,7 @@ class PresenceDetector:
                     status_msg = f"Presence changed: {'Person detected' if self.person_present else 'No person detected'}"
                     if self.person_present and detection_type:
                         status_msg += f" ({detection_type})"
-                    print(status_msg)
+                    logging.info(status_msg)
                     self._notify_callbacks(self.person_present)
                     previous_state = self.person_present
                 
@@ -179,7 +180,7 @@ class PresenceDetector:
                 time.sleep(sleep_time)
                 
             except Exception as e:
-                print(f"Error in detection loop: {e}")
+                logging.error(f"Error in detection loop: {e}", exc_info=True)
                 time.sleep(self.check_interval)
         
         # Cleanup

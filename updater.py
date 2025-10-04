@@ -5,6 +5,7 @@ Checks for updates from GitHub releases and downloads/installs them.
 
 import sys
 import json
+import logging
 import requests
 import zipfile
 import shutil
@@ -48,15 +49,15 @@ class UpdateChecker:
             Dict with update info if available, None otherwise
         """
         try:
-            print(f"Checking for updates from {self.github_api_url}")
+            logging.info(f"Checking for updates from {self.github_api_url}")
             response = requests.get(self.github_api_url, timeout=10)
             response.raise_for_status()
             
             release_info = response.json()
             latest_version = release_info['tag_name'].lstrip('v')
             
-            print(f"Current version: {self.current_version}")
-            print(f"Latest version: {latest_version}")
+            logging.info(f"Current version: {self.current_version}")
+            logging.info(f"Latest version: {latest_version}")
             
             # Compare versions
             if pkg_version.parse(latest_version) > pkg_version.parse(self.current_version):
@@ -72,17 +73,17 @@ class UpdateChecker:
                             'published_at': release_info.get('published_at', '')
                         }
                 
-                print("No portable ZIP found in latest release")
+                logging.info("No portable ZIP found in latest release")
                 return None
             else:
-                print("Application is up to date")
+                logging.info("Application is up to date")
                 return None
                 
         except requests.exceptions.RequestException as e:
-            print(f"Error checking for updates: {e}")
+            logging.error(f"Error checking for updates: {e}")
             return None
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            logging.error(f"Unexpected error: {e}", exc_info=True)
             return None
     
     def download_update(self, update_info: Dict, progress_callback=None) -> Optional[Path]:
@@ -103,8 +104,8 @@ class UpdateChecker:
             
             download_path = self.update_dir / filename
             
-            print(f"Downloading update from {download_url}")
-            print(f"Saving to {download_path}")
+            logging.info(f"Downloading update from {download_url}")
+            logging.info(f"Saving to {download_path}")
             
             response = requests.get(download_url, stream=True, timeout=30)
             response.raise_for_status()
@@ -118,11 +119,11 @@ class UpdateChecker:
                         if progress_callback:
                             progress_callback(bytes_downloaded, total_size)
             
-            print(f"Download complete: {download_path}")
+            logging.info(f"Download complete: {download_path}")
             return download_path
             
         except Exception as e:
-            print(f"Error downloading update: {e}")
+            logging.error(f"Error downloading update: {e}", exc_info=True)
             return None
     
     def install_update(self, zip_path: Path, backup: bool = True) -> bool:
@@ -142,7 +143,7 @@ class UpdateChecker:
                 backup_dir = self.app_dir.parent / f"TabletHA_backup_{self.current_version}"
                 if backup_dir.exists():
                     shutil.rmtree(backup_dir)
-                print(f"Creating backup at {backup_dir}")
+                logging.info(f"Creating backup at {backup_dir}")
                 shutil.copytree(self.app_dir, backup_dir, 
                               ignore=shutil.ignore_patterns('webdata', 'updates', '__pycache__'))
             
@@ -152,7 +153,7 @@ class UpdateChecker:
                 shutil.rmtree(temp_extract_dir)
             temp_extract_dir.mkdir(exist_ok=True)
             
-            print(f"Extracting update to {temp_extract_dir}")
+            logging.info(f"Extracting update to {temp_extract_dir}")
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(temp_extract_dir)
             
@@ -172,7 +173,7 @@ class UpdateChecker:
                 config_backup = config_file.read_text(encoding='utf-8')
             
             # Copy new files (excluding certain directories)
-            print("Installing update files...")
+            logging.info("Installing update files...")
             for item in source_dir.iterdir():
                 if item.name in ['webdata', 'updates', '__pycache__']:
                     continue
@@ -194,18 +195,18 @@ class UpdateChecker:
             if config_backup:
                 new_config_file = self.app_dir / "_internal" / "config.json"
                 if new_config_file.exists():
-                    print("Restoring user configuration...")
+                    logging.info("Restoring user configuration...")
                     new_config_file.write_text(config_backup, encoding='utf-8')
             
             # Clean up
             shutil.rmtree(temp_extract_dir)
             zip_path.unlink()
             
-            print("Update installed successfully!")
+            logging.info("Update installed successfully!")
             return True
             
         except Exception as e:
-            print(f"Error installing update: {e}")
+            logging.error(f"Error installing update: {e}", exc_info=True)
             return False
     
     def restart_application(self):
@@ -213,11 +214,11 @@ class UpdateChecker:
         try:
             exe_path = self.app_dir / "TabletHA.exe"
             if exe_path.exists():
-                print("Restarting application...")
+                logging.info("Restarting application...")
                 subprocess.Popen([str(exe_path)], cwd=str(self.app_dir))
                 sys.exit(0)
         except Exception as e:
-            print(f"Error restarting application: {e}")
+            logging.error(f"Error restarting application: {e}", exc_info=True)
 
 
 class UpdateManager:
@@ -256,7 +257,7 @@ class UpdateManager:
             Update info if available, None otherwise
         """
         if not self.enabled:
-            print("Updates are disabled")
+            logging.info("Updates are disabled")
             return None
         
         update_info = self.checker.check_for_updates()
@@ -315,25 +316,25 @@ def main():
     if args.check:
         update_info = checker.check_for_updates()
         if update_info:
-            print(f"\nUpdate available: v{update_info['version']}")
-            print(f"Download: {update_info['filename']}")
-            print(f"Size: {update_info['size'] / 1024 / 1024:.2f} MB")
-            print(f"\nRelease Notes:\n{update_info['release_notes']}")
+            logging.info(f"\nUpdate available: v{update_info['version']}")
+            logging.info(f"Download: {update_info['filename']}")
+            logging.info(f"Size: {update_info['size'] / 1024 / 1024:.2f} MB")
+            logging.info(f"\nRelease Notes:\n{update_info.get('release_notes', '')}")
         else:
-            print("No updates available")
+            logging.info("No updates available")
     
     if args.download and update_info:
         def progress(current, total):
             percent = (current / total) * 100
-            print(f"\rDownload progress: {percent:.1f}%", end='', flush=True)
+            logging.info(f"\rDownload progress: {percent:.1f}%")
         
         zip_path = checker.download_update(update_info, progress)
-        print(f"\n\nDownloaded to: {zip_path}")
+        logging.info(f"\n\nDownloaded to: {zip_path}")
         
         if args.install and zip_path:
             success = checker.install_update(zip_path)
             if success:
-                print("Update installed successfully!")
+                logging.info("Update installed successfully!")
 
 
 if __name__ == '__main__':
