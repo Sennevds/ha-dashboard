@@ -1,0 +1,170 @@
+name: Build Test
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~\AppData\Local\pip\Cache
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    - name: Run Python syntax check
+      run: |
+        python -m py_compile main.py
+        python -m py_compile presence_detector.py
+        python -m py_compile screen_controller.py
+        python -m py_compile mqtt_client.py
+        python -m py_compile updater.py
+        
+    - name: Validate config.json
+      shell: pwsh
+      run: |
+        try {
+          $config = Get-Content config.json -Raw | ConvertFrom-Json
+          echo "✓ config.json is valid JSON"
+          
+          # Check required sections
+          $required = @('home_assistant', 'cookbook', 'mqtt', 'presence_detection', 'screen', 'shortcuts', 'updates')
+          foreach ($section in $required) {
+            if ($config.PSObject.Properties.Name -contains $section) {
+              echo "  ✓ $section section present"
+            } else {
+              echo "  ✗ $section section missing!"
+              exit 1
+            }
+          }
+        } catch {
+          echo "✗ config.json is invalid: $_"
+          exit 1
+        }
+        
+    - name: Build executable with PyInstaller
+      shell: pwsh
+      run: |
+        echo "Starting build..."
+        pyinstaller --noconfirm TabletHA.spec
+        
+        if ($LASTEXITCODE -ne 0) {
+          echo "Build failed with exit code $LASTEXITCODE"
+          exit 1
+        }
+        
+        echo "Build completed successfully"
+        
+    - name: Verify build output
+      shell: pwsh
+      run: |
+        $errors = @()
+        
+        # Check executable
+        if (Test-Path "dist\TabletHA\TabletHA.exe") {
+          $size = (Get-Item "dist\TabletHA\TabletHA.exe").Length / 1MB
+          echo "✓ TabletHA.exe exists (${size:N2} MB)"
+        } else {
+          $errors += "TabletHA.exe not found"
+        }
+        
+        # Check _internal directory
+        if (Test-Path "dist\TabletHA\_internal") {
+          echo "✓ _internal directory exists"
+        } else {
+          $errors += "_internal directory not found"
+        }
+        
+        # Check required files in _internal
+        $requiredFiles = @(
+          "config.json",
+          "README.md",
+          "QUICKSTART.md",
+          "DETECTION_MODES.md",
+          "CONFIGURE.md",
+          "UPDATE_SYSTEM.md"
+        )
+        
+        foreach ($file in $requiredFiles) {
+          if (Test-Path "dist\TabletHA\_internal\$file") {
+            echo "  ✓ $file included"
+          } else {
+            $errors += "$file not included in build"
+          }
+        }
+        
+        # Check for critical DLLs
+        $criticalDlls = @(
+          "python310.dll",
+          "Qt6Core.dll",
+          "Qt6WebEngineCore.dll"
+        )
+        
+        foreach ($dll in $criticalDlls) {
+          if (Test-Path "dist\TabletHA\_internal\$dll") {
+            echo "  ✓ $dll included"
+          } else {
+            $errors += "$dll not found"
+          }
+        }
+        
+        # Report errors
+        if ($errors.Count -gt 0) {
+          echo ""
+          echo "Build verification failed:"
+          foreach ($error in $errors) {
+            echo "  ✗ $error"
+          }
+          exit 1
+        } else {
+          echo ""
+          echo "✓ All build verification checks passed"
+        }
+        
+    - name: Calculate build size
+      shell: pwsh
+      run: |
+        $totalSize = (Get-ChildItem -Path "dist\TabletHA" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        echo "Total build size: ${totalSize:N2} MB"
+        
+        # Create size breakdown
+        echo ""
+        echo "Size breakdown:"
+        
+        $exe = (Get-Item "dist\TabletHA\TabletHA.exe").Length / 1MB
+        echo "  TabletHA.exe: ${exe:N2} MB"
+        
+        $internal = (Get-ChildItem -Path "dist\TabletHA\_internal" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        echo "  _internal/: ${internal:N2} MB"
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: tablet-ha-build-test
+        path: |
+          dist/TabletHA/
+          build/TabletHA/warn-TabletHA.txt
+        retention-days: 7

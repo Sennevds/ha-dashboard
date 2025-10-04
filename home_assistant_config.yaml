@@ -1,0 +1,222 @@
+# Home Assistant Configuration Example
+# Add this to your Home Assistant configuration.yaml
+
+# MQTT Configuration (if not already configured)
+mqtt:
+  broker: localhost  # or your MQTT broker IP
+  port: 1883
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  discovery: true  # Enable MQTT discovery for auto-detection
+
+# Input Booleans for controls
+input_boolean:
+  tablet_presence_detection:
+    name: Tablet Presence Detection
+    icon: mdi:eye
+
+  cooking_mode:
+    name: Cooking Mode
+    icon: mdi:chef-hat
+
+# Input Number for brightness
+input_number:
+  tablet_brightness:
+    name: Tablet Brightness
+    min: 0
+    max: 100
+    step: 5
+    unit_of_measurement: "%"
+    icon: mdi:brightness-6
+
+# Scripts
+script:
+  tablet_switch_to_home_assistant:
+    alias: "Tablet: Switch to Home Assistant"
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/switch_app"
+          payload: "home_assistant"
+
+  tablet_switch_to_cookbook:
+    alias: "Tablet: Switch to Cookbook"
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/switch_app"
+          payload: "cookbook"
+
+  tablet_toggle_app:
+    alias: "Tablet: Toggle App"
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/switch_app"
+          payload: "toggle"
+
+  tablet_screen_on:
+    alias: "Tablet: Screen On"
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/screen"
+          payload: "on"
+
+  tablet_screen_off:
+    alias: "Tablet: Screen Off"
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/screen"
+          payload: "off"
+
+# Automations
+automation:
+  # Turn on presence detection when needed
+  - id: tablet_presence_detection_on
+    alias: "Tablet: Enable Presence Detection"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.tablet_presence_detection
+        to: "on"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/presence_detection"
+          payload: "on"
+
+  # Turn off presence detection
+  - id: tablet_presence_detection_off
+    alias: "Tablet: Disable Presence Detection"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.tablet_presence_detection
+        to: "off"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/presence_detection"
+          payload: "off"
+
+  # Set brightness from input number
+  - id: tablet_brightness_control
+    alias: "Tablet: Control Brightness"
+    trigger:
+      - platform: state
+        entity_id: input_number.tablet_brightness
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/brightness"
+          payload: "{{ states('input_number.tablet_brightness') | int }}"
+
+  # Switch to cookbook when cooking mode is on
+  - id: tablet_cooking_mode
+    alias: "Tablet: Cooking Mode"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.cooking_mode
+        to: "on"
+    action:
+      - service: script.tablet_switch_to_cookbook
+
+  # Switch back to Home Assistant when cooking mode is off
+  - id: tablet_normal_mode
+    alias: "Tablet: Normal Mode"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.cooking_mode
+        to: "off"
+    action:
+      - service: script.tablet_switch_to_home_assistant
+
+  # Dim tablet at night
+  - id: tablet_night_brightness
+    alias: "Tablet: Night Brightness"
+    trigger:
+      - platform: time
+        at: "22:00:00"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/brightness"
+          payload: "20"
+
+  # Restore tablet brightness in morning
+  - id: tablet_morning_brightness
+    alias: "Tablet: Morning Brightness"
+    trigger:
+      - platform: time
+        at: "07:00:00"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "tablet/command/brightness"
+          payload: "80"
+
+  # Notification when someone approaches tablet
+  - id: tablet_presence_detected
+    alias: "Tablet: Presence Detected Notification"
+    trigger:
+      - platform: mqtt
+        topic: "tablet/state/presence"
+        payload: "detected"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.tablet_presence
+        state: "off"
+        for:
+          minutes: 5
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Someone is at the tablet"
+          title: "Tablet Activity"
+
+# Lovelace Dashboard Card Example
+# Add this to your dashboard configuration
+
+# type: vertical-stack
+# cards:
+#   - type: entities
+#     title: Tablet Control
+#     entities:
+#       - entity: binary_sensor.tablet_presence
+#         name: Presence Detected
+#       - entity: sensor.tablet_brightness
+#         name: Brightness
+#       - entity: input_boolean.tablet_presence_detection
+#         name: Presence Detection
+#       - entity: input_boolean.cooking_mode
+#         name: Cooking Mode
+#       - entity: input_number.tablet_brightness
+#         name: Set Brightness
+#   - type: horizontal-stack
+#     cards:
+#       - type: button
+#         name: Home Assistant
+#         tap_action:
+#           action: call-service
+#           service: script.tablet_switch_to_home_assistant
+#         icon: mdi:home-assistant
+#       - type: button
+#         name: Cookbook
+#         tap_action:
+#           action: call-service
+#           service: script.tablet_switch_to_cookbook
+#         icon: mdi:chef-hat
+#   - type: horizontal-stack
+#     cards:
+#       - type: button
+#         name: Screen On
+#         tap_action:
+#           action: call-service
+#           service: script.tablet_screen_on
+#         icon: mdi:monitor
+#       - type: button
+#         name: Screen Off
+#         tap_action:
+#           action: call-service
+#           service: script.tablet_screen_off
+#         icon: mdi:monitor-off

@@ -1,0 +1,9 @@
+PyQt6>=6.6.1
+PyQt6-WebEngine>=6.6.0
+opencv-python==4.9.0.80
+mediapipe==0.10.9
+paho-mqtt==1.6.1
+screen-brightness-control==0.22.0
+Pillow==10.2.0
+requests>=2.31.0
+packaging>=23.0
