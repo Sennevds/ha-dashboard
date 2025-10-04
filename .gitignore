@@ -38,7 +38,7 @@ ENV/
 Thumbs.db
 
 # Configuration (sensitive data)
-config.json
+# config.json is tracked (sanitized template) but config.local.json is for personal use
 config.local.json
 secrets.yaml
 
