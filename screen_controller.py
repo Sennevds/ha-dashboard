@@ -163,42 +163,92 @@ class ScreenController:
         self._stop_keep_awake()
         
         try:
-            # ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
+            # ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED | ES_AWAYMODE_REQUIRED
             # This prevents Windows from sleeping/locking while screen is "off"
             ES_CONTINUOUS = 0x80000000
             ES_SYSTEM_REQUIRED = 0x00000001
             ES_DISPLAY_REQUIRED = 0x00000002
+            ES_AWAYMODE_REQUIRED = 0x00000040
             
-            # Set thread execution state to prevent sleep
+            # Set thread execution state to prevent sleep and lock
+            # Using ES_DISPLAY_REQUIRED keeps display available even when "off"
             ctypes.windll.kernel32.SetThreadExecutionState(
-                ES_CONTINUOUS | ES_SYSTEM_REQUIRED
+                ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED | ES_AWAYMODE_REQUIRED
             )
             
             logging.debug("Keep-awake mechanism started (prevents lock screen)")
             
-            # Schedule periodic refresh every 30 seconds to maintain the state
-            self._keep_awake_timer = Timer(30.0, self._refresh_keep_awake)
+            # Schedule periodic activity simulation every 45 seconds
+            self._keep_awake_timer = Timer(45.0, self._refresh_keep_awake)
             self._keep_awake_timer.daemon = True
             self._keep_awake_timer.start()
             
         except Exception as e:
             logging.error(f"Error starting keep-awake: {e}")
     
+    def _simulate_user_activity(self):
+        """Simulate minimal user activity to prevent screen lock."""
+        try:
+            # Use INPUT structure to simulate keyboard input
+            # Press and release Shift key (0x10) - least intrusive
+            # This prevents lock screen without affecting running applications
+            
+            # INPUT structure for keyboard
+            class KEYBDINPUT(ctypes.Structure):
+                _fields_ = [
+                    ("wVk", ctypes.c_ushort),
+                    ("wScan", ctypes.c_ushort),
+                    ("dwFlags", ctypes.c_ulong),
+                    ("time", ctypes.c_ulong),
+                    ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
+                ]
+            
+            class INPUT(ctypes.Structure):
+                _fields_ = [
+                    ("type", ctypes.c_ulong),
+                    ("ki", KEYBDINPUT)
+                ]
+            
+            # Send F15 key (rarely used, won't interfere)
+            # F15 = 0x7E
+            extra = ctypes.c_ulong(0)
+            
+            # Key down
+            ii_ = INPUT()
+            ii_.type = 1  # INPUT_KEYBOARD
+            ii_.ki = KEYBDINPUT(0x7E, 0, 0, 0, ctypes.pointer(extra))
+            ctypes.windll.user32.SendInput(1, ctypes.pointer(ii_), ctypes.sizeof(ii_))
+            
+            # Key up
+            ii_.ki.dwFlags = 0x0002  # KEYEVENTF_KEYUP
+            ctypes.windll.user32.SendInput(1, ctypes.pointer(ii_), ctypes.sizeof(ii_))
+            
+            logging.debug("User activity simulated (F15 key)")
+            
+        except Exception as e:
+            logging.warning(f"Could not simulate user activity: {e}")
+    
     def _refresh_keep_awake(self):
         """Refresh the keep-awake state periodically."""
         if self._screen_is_off and self.is_windows:
             try:
+                # Refresh execution state
                 ES_CONTINUOUS = 0x80000000
                 ES_SYSTEM_REQUIRED = 0x00000001
+                ES_DISPLAY_REQUIRED = 0x00000002
+                ES_AWAYMODE_REQUIRED = 0x00000040
                 
                 ctypes.windll.kernel32.SetThreadExecutionState(
-                    ES_CONTINUOUS | ES_SYSTEM_REQUIRED
+                    ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED | ES_AWAYMODE_REQUIRED
                 )
                 
-                logging.debug("Keep-awake refreshed")
+                # Simulate user activity to prevent lock
+                self._simulate_user_activity()
+                
+                logging.debug("Keep-awake refreshed with activity simulation")
                 
                 # Schedule next refresh
-                self._keep_awake_timer = Timer(30.0, self._refresh_keep_awake)
+                self._keep_awake_timer = Timer(45.0, self._refresh_keep_awake)
                 self._keep_awake_timer.daemon = True
                 self._keep_awake_timer.start()
                 
