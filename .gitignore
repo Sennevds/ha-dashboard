@@ -38,8 +38,7 @@ ENV/
 Thumbs.db
 
 # Configuration (sensitive data)
-# config.json - COMMENTED OUT: Needed for GitHub Actions
-# Add your personal config to config.local.json instead
+config.json
 config.local.json
 secrets.yaml
 

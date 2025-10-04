@@ -1,0 +1,43 @@
+{
+  "cookbook": {
+    "url": "https://your-cookbook-url.com"
+  },
+  "home_assistant": {
+    "token": "",
+    "url": "http://homeassistant.local:8123"
+  },
+  "mqtt": {
+    "broker": "localhost",
+    "enabled": false,
+    "password": "",
+    "port": 1883,
+    "topic_prefix": "tablet",
+    "username": ""
+  },
+  "presence_detection": {
+    "check_interval_ms": 1000,
+    "detection_confidence": 0.5,
+    "detection_mode": "both",
+    "enabled": true,
+    "presence_timeout_seconds": 30
+  },
+  "screen": {
+    "dim_brightness_when_no_presence": false,
+    "dim_level": 20,
+    "normal_brightness": 100,
+    "turn_off_when_no_presence": true,
+    "wake_on_user_input": true
+  },
+  "shortcuts": {
+    "exit_fullscreen": "F11",
+    "quit_app": "Ctrl+Q",
+    "switch_app": "F1"
+  },
+  "updates": {
+    "auto_install": false,
+    "check_on_startup": true,
+    "current_version": "1.0.0",
+    "enabled": true,
+    "repo_url": "owner/repo"
+  }
+}
